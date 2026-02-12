@@ -2,10 +2,14 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Cinema Party · Синхронный просмотр</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>LordFilm · Cinema Party</title>
     <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
         body {
             background: #0a0c0e;
             color: white;
@@ -26,35 +30,8 @@
             width: 100%;
             height: 100%;
             border: none;
+            background: #000;
         }
-        #controls {
-            position: fixed;
-            bottom: 20px;
-            left: 50%;
-            transform: translateX(-50%);
-            background: rgba(20, 22, 26, 0.95);
-            backdrop-filter: blur(10px);
-            padding: 12px 24px;
-            border-radius: 50px;
-            display: flex;
-            gap: 15px;
-            align-items: center;
-            z-index: 100;
-            border: 1px solid rgba(255,255,255,0.1);
-            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
-        }
-        .btn {
-            background: #ff4d4d;
-            color: white;
-            border: none;
-            padding: 10px 24px;
-            border-radius: 40px;
-            font-weight: 600;
-            font-size: 15px;
-            cursor: pointer;
-            transition: all 0.2s;
-        }
-        .btn:hover { background: #ff3333; transform: scale(1.02); }
         #info {
             position: fixed;
             top: 20px;
@@ -67,6 +44,7 @@
             color: #ff4d4d;
             font-weight: bold;
             backdrop-filter: blur(5px);
+            box-shadow: 0 4px 15px rgba(0,0,0,0.3);
         }
         #status {
             position: fixed;
@@ -79,201 +57,111 @@
             border: 1px solid #00ff88;
             color: #00ff88;
             backdrop-filter: blur(5px);
+            box-shadow: 0 4px 15px rgba(0,0,0,0.3);
         }
-        .sync-badge {
+        #debug {
             position: fixed;
-            bottom: 100px;
+            bottom: 20px;
             left: 20px;
-            background: rgba(255,75,75,0.9);
-            padding: 8px 16px;
-            border-radius: 20px;
-            font-size: 14px;
+            right: 20px;
+            background: rgba(0,0,0,0.9);
+            color: #ffaa00;
+            padding: 15px;
+            border-radius: 10px;
+            font-family: monospace;
+            font-size: 12px;
+            z-index: 1001;
+            border: 1px solid #ffaa00;
+            display: none;
+            max-height: 200px;
+            overflow: auto;
+            white-space: pre-wrap;
+            word-break: break-all;
+        }
+        .btn {
+            position: fixed;
+            bottom: 30px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #ff4d4d;
             color: white;
+            border: none;
+            padding: 12px 30px;
+            border-radius: 50px;
+            font-weight: 600;
+            font-size: 16px;
+            cursor: pointer;
+            transition: all 0.2s;
             z-index: 1000;
+            box-shadow: 0 4px 15px rgba(255,75,75,0.3);
+            display: none;
+        }
+        .btn:hover {
+            background: #ff3333;
+            transform: translateX(-50%) scale(1.05);
+        }
+        @media (max-width: 768px) {
+            #info, #status {
+                font-size: 12px;
+                padding: 8px 16px;
+            }
         }
     </style>
 </head>
 <body>
     <div id="info">🎬 LordFilm | Комната: <span id="room-id">загрузка...</span></div>
-    <div id="status">🟡 Подключение...</div>
-    <div id="sync-badge" class="sync-badge">🔄 Синхронизация активна</div>
+    <div id="status">🟡 Загрузка плеера...</div>
+    <div id="debug"></div>
+    <button id="back-btn" class="btn" onclick="window.history.back()">◀ Назад</button>
     
     <div id="video-container">
-        <iframe id="player" allowfullscreen allow="autoplay; fullscreen"></iframe>
+        <video id="player" controls autoplay style="display: none;"></video>
+        <iframe id="player-iframe" allowfullscreen allow="autoplay; fullscreen" style="display: none;"></iframe>
     </div>
 
-    <div id="controls">
-        <button class="btn" onclick="togglePlay()">⏯️ Пауза/Плей</button>
-        <button class="btn" onclick="reSync()">🔄 Синхр.</button>
-    </div>
-
-    <!-- Socket.io для WebRTC сигнализации -->
-    <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
-    
     <script>
-        // ============ ПАРАМЕТРЫ ============
+        // ============ ПОЛУЧАЕМ ПАРАМЕТРЫ ============
         const urlParams = new URLSearchParams(window.location.search);
         const roomId = urlParams.get('room') || 'default';
         const videoUrl = urlParams.get('url');
-        const userId = 'user_' + Math.random().toString(36).substr(2, 9);
-        
-        let socket = null;
-        let player = document.getElementById('player');
-        let isHost = false;
-        let lastSync = 0;
         
         document.getElementById('room-id').textContent = roomId;
         
-        // ============ ПОДКЛЮЧЕНИЕ К WEBRTC СЕРВЕРУ ============
-        function connectWebRTC() {
-            // Используем тот же хост, откуда открыт плеер
-            const serverUrl = window.location.origin;
-            
-            socket = io(serverUrl, {
-                query: { room: roomId, user: userId }
-            });
-            
-            socket.on('connect', function() {
-                document.getElementById('status').innerHTML = '🟢 Подключено';
-                
-                // Присоединяемся к комнате
-                socket.emit('join-room', {
-                    roomId: roomId,
-                    userId: userId,
-                    username: 'User_' + userId.substr(0, 4)
-                });
-            });
-            
-            // Получаем состояние комнаты
-            socket.on('room-state', function(state) {
-                if (state.hostId === socket.id) {
-                    isHost = true;
-                    console.log('🎬 Вы хост комнаты');
-                }
-            });
-            
-            // Кто-то присоединился
-            socket.on('peer-joined', function(data) {
-                console.log('👥 Участник присоединился:', data);
-            });
-            
-            // Кто-то вышел
-            socket.on('peer-left', function(peerId) {
-                console.log('👋 Участник вышел:', peerId);
-            });
-            
-            // ============ СИНХРОНИЗАЦИЯ ВИДЕО ============
-            socket.on('video-sync', function(data) {
-                // Игнорируем свои же сообщения
-                if (data.userId === userId) return;
-                
-                console.log('🔄 Синхронизация:', data.action, data.time);
-                
-                // Пытаемся управлять плеером
-                try {
-                    if (data.action === 'play') {
-                        playVideo();
-                    } else if (data.action === 'pause') {
-                        pauseVideo();
-                    } else if (data.action === 'seek') {
-                        seekVideo(data.time);
-                    }
-                } catch(e) {
-                    console.log('Ошибка синхронизации:', e);
-                }
-            });
-            
-            socket.on('disconnect', function() {
-                document.getElementById('status').innerHTML = '🔴 Отключено';
-            });
-            
-            socket.on('connect_error', function(err) {
-                document.getElementById('status').innerHTML = '⚠️ Ошибка WebRTC';
-                document.getElementById('sync-badge').style.display = 'none';
-                console.log('WebRTC ошибка:', err);
-            });
-        }
-        
-        // ============ УПРАВЛЕНИЕ ПЛЕЕРОМ ============
-        function playVideo() {
-            // Для iframe пытаемся нажать play (не всегда работает)
-            // В идеале нужен YouTube API, но для LordFilm/iframe это сложно
-            console.log('▶️ Play');
-            
-            // Отправляем команду всем
-            if (socket && isHost) {
-                socket.emit('video-action', {
-                    roomId: roomId,
-                    userId: userId,
-                    action: 'play',
-                    time: Date.now()
-                });
-            }
-        }
-        
-        function pauseVideo() {
-            console.log('⏸️ Pause');
-            
-            if (socket && isHost) {
-                socket.emit('video-action', {
-                    roomId: roomId,
-                    userId: userId,
-                    action: 'pause',
-                    time: Date.now()
-                });
-            }
-        }
-        
-        function seekVideo(time) {
-            console.log('⏩ Seek:', time);
-            
-            if (socket && isHost) {
-                socket.emit('video-action', {
-                    roomId: roomId,
-                    userId: userId,
-                    action: 'seek',
-                    time: time
-                });
-            }
-        }
-        
-        // ============ ПОЛЬЗОВАТЕЛЬСКИЕ ДЕЙСТВИЯ ============
-        function togglePlay() {
-            if (isHost) {
-                // Просто отправляем команду, реальный плеер в iframe мы не контролируем
-                playVideo();
-                alert('✅ Команда паузы/плея отправлена всем');
-            } else {
-                alert('❌ Только хост может управлять видео');
-            }
-        }
-        
-        function reSync() {
-            if (isHost) {
-                seekVideo(Date.now());
-                alert('🔄 Команда синхронизации отправлена');
-            } else {
-                alert('❌ Только хост может синхронизировать');
-            }
+        // ============ ФУНКЦИЯ ОТЛАДКИ ============
+        function debug(message) {
+            console.log(message);
+            const debugEl = document.getElementById('debug');
+            debugEl.style.display = 'block';
+            debugEl.innerHTML += '> ' + new Date().toLocaleTimeString() + ': ' + message + '\n';
+            debugEl.scrollTop = debugEl.scrollHeight;
         }
         
         // ============ ЗАГРУЗКА ВИДЕО ============
         if (videoUrl) {
-            player.src = videoUrl;
-            document.getElementById('status').innerHTML = '🎬 Плеер загружен';
-        }
-        
-        // ============ ЗАПУСК ============
-        connectWebRTC();
-        
-        // Если WebRTC не подключился за 5 секунд, показываем предупреждение
-        setTimeout(function() {
-            if (!socket || !socket.connected) {
-                document.getElementById('status').innerHTML = '⚠️ Без синхронизации';
-                document.getElementById('sync-badge').style.background = 'rgba(255,150,0,0.9)';
-                document.getElementById('sync-badge').innerHTML = '⚠️ Синхронизация недоступна';
+            debug('Получена ссылка: ' + videoUrl);
+            
+            const video = document.getElementById('player');
+            const iframe = document.getElementById('player-iframe');
+            const status = document.getElementById('status');
+            
+            // ============ ПРОВЕРКА ТИПА ССЫЛКИ ============
+            
+            // 1. Прямые .mp4 потоки с api.atomics.ws (ИДЕАЛЬНО!)
+            if (videoUrl.includes('api.atomics.ws') || videoUrl.includes('.mp4') || videoUrl.includes('.m3u8')) {
+                debug('✅ Обнаружена прямая ссылка на видео');
+                video.style.display = 'block';
+                iframe.style.display = 'none';
+                video.src = videoUrl;
+                video.play().catch(e => debug('Ошибка автозапуска: ' + e));
+                status.innerHTML = '🎬 Воспроизведение .mp4';
+                status.style.borderColor = '#00ff88';
+                status.style.color = '#00ff88';
             }
-        }, 5000);
-    </script>
-</body>
-</html>
+            
+            // 2. Ссылки на svetacdn.in (тоже прямые .mp4)
+            else if (videoUrl.includes('svetacdn.in')) {
+                debug('✅ Обнаружен поток svetacdn');
+                video.style.display = 'block';
+                iframe.style.display = 'none';
+                video.src = videoUrl;
+                video.play().catch(e => debug('Ошибка
