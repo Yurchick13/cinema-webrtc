@@ -30,15 +30,45 @@
             position: fixed;
             top: 20px;
             left: 20px;
-            background: rgba(0,0,0,0.8);
-            padding: 10px 20px;
-            border-radius: 30px;
+            background: rgba(0,0,0,0.85);
+            padding: 12px 24px;
+            border-radius: 40px;
             z-index: 1000;
+            border: 1px solid #ff4d4d;
+            color: #ff4d4d;
+            font-weight: bold;
+            backdrop-filter: blur(5px);
+        }
+        #status {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: rgba(0,0,0,0.85);
+            padding: 12px 24px;
+            border-radius: 40px;
+            z-index: 1000;
+            border: 1px solid #00ff88;
+            color: #00ff88;
+            backdrop-filter: blur(5px);
+        }
+        .error {
+            position: fixed;
+            bottom: 40px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(255,0,0,0.9);
+            padding: 16px 32px;
+            border-radius: 50px;
+            color: white;
+            font-weight: bold;
+            display: none;
         }
     </style>
 </head>
 <body>
     <div id="info">🎬 LordFilm | Комната: <span id="room-id">загрузка...</span></div>
+    <div id="status">🟡 Загрузка плеера...</div>
+    <div id="error" class="error"></div>
     
     <div id="player-container">
         <iframe id="player" allowfullscreen allow="autoplay; fullscreen"></iframe>
@@ -53,7 +83,24 @@
         
         if (videoUrl) {
             const player = document.getElementById('player');
-            player.src = videoUrl;
+            const status = document.getElementById('status');
+            
+            // Очищаем URL от VK если вдруг попал
+            let cleanUrl = videoUrl;
+            if (cleanUrl.includes('vk.com') || cleanUrl.includes('vkvideo')) {
+                cleanUrl = 'https://lordserial.lu';
+                status.innerHTML = '⚠️ VK заблокирован, перенаправляем...';
+            }
+            
+            player.src = cleanUrl;
+            status.innerHTML = '🎬 Плеер загружен';
+            
+            // Обработка ошибок загрузки
+            player.onerror = function() {
+                status.innerHTML = '❌ Ошибка загрузки плеера';
+                document.getElementById('error').style.display = 'block';
+                document.getElementById('error').innerHTML = 'Не удалось загрузить видео. Попробуй другой фильм.';
+            };
         }
     </script>
 </body>
