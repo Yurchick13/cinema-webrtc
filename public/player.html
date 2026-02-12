@@ -3,63 +3,22 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>LordFilm Cinema</title>
+    <title>Кинокрад · Cinema Party</title>
     <style>
-        body {
-            margin: 0;
-            background: #0a0c0e;
-            color: white;
-            font-family: Arial, sans-serif;
-            height: 100vh;
-            display: flex;
-            flex-direction: column;
-        }
-        #player-container {
-            flex: 1;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            background: #000;
-        }
-        iframe {
-            width: 100%;
-            height: 100%;
-            border: none;
-        }
+        body { margin: 0; background: #000; color: #fff; font-family: Arial; height: 100vh; }
+        iframe { width: 100%; height: 100%; border: none; }
         #info {
-            position: fixed;
-            top: 20px;
-            left: 20px;
-            background: rgba(0,0,0,0.85);
-            padding: 12px 24px;
-            border-radius: 40px;
-            z-index: 1000;
-            border: 1px solid #ff4d4d;
-            color: #ff4d4d;
-            font-weight: bold;
-            backdrop-filter: blur(5px);
-        }
-        #status {
-            position: fixed;
-            top: 20px;
-            right: 20px;
-            background: rgba(0,0,0,0.85);
-            padding: 12px 24px;
-            border-radius: 40px;
-            z-index: 1000;
-            border: 1px solid #00ff88;
-            color: #00ff88;
-            backdrop-filter: blur(5px);
+            position: fixed; top: 20px; left: 20px;
+            background: rgba(0,0,0,0.85); padding: 12px 24px;
+            border-radius: 40px; z-index: 1000;
+            border: 1px solid #ff4d4d; color: #ff4d4d;
+            font-weight: bold; backdrop-filter: blur(5px);
         }
     </style>
 </head>
 <body>
-    <div id="info">🎬 LordFilm | Комната: <span id="room-id">загрузка...</span></div>
-    <div id="status">🟡 Загрузка плеера...</div>
-    
-    <div id="player-container">
-        <iframe id="player" allowfullscreen allow="autoplay; fullscreen"></iframe>
-    </div>
+    <div id="info">🎬 Кинокрад | Комната: <span id="room-id">загрузка...</span></div>
+    <iframe id="player" allowfullscreen allow="autoplay; fullscreen"></iframe>
 
     <script>
         const params = new URLSearchParams(window.location.search);
@@ -70,16 +29,7 @@
         
         if (videoUrl) {
             const player = document.getElementById('player');
-            const status = document.getElementById('status');
-            
-            // Проверяем, что это не VK
-            if (videoUrl.includes('vk.com') || videoUrl.includes('vkvideo')) {
-                status.innerHTML = '⚠️ VK заблокирован';
-                player.src = 'about:blank';
-            } else {
-                player.src = videoUrl;
-                status.innerHTML = '🎬 Плеер загружен';
-            }
+            player.src = videoUrl;  // Кинокрад откроется прямо здесь!
         }
     </script>
 </body>
