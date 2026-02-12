@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Cinema Party - Синхронный просмотр</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <style>
+        body { margin: 0; background: #000; color: #fff; font-family: Arial; }
+        #player { width: 100%; height: 100vh; }
+        .controls {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0,0,0,0.8);
+            padding: 15px 25px;
+            border-radius: 50px;
+            display: flex;
+            gap: 20px;
+        }
+        .btn {
+            background: #ff4d4d;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 25px;
+            cursor: pointer;
+            font-weight: bold;
+        }
+        .btn:hover { background: #ff3333; }
+        #url-input {
+            width: 400px;
+            padding: 10px;
+            border-radius: 25px;
+            border: none;
+            background: #222;
+            color: white;
+        }
+        .status {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: rgba(0,0,0,0.7);
+            padding: 10px 20px;
+            border-radius: 25px;
+        }
+    </style>
+</head>
+<body>
+    <div class="status" id="status">
+        🔴 Не подключено
+    </div>
+
+    <video id="player" controls></video>
+
+    <div class="controls">
+        <input type="text" id="url-input" placeholder="Вставь ссылку на видео (YouTube, lordfilm, mp4...)">
+        <button class="btn" onclick="loadVideo()">📺 Загрузить</button>
+        <button class="btn" onclick="togglePlay()">⏯️ Play/Pause</button>
+    </div>
+
+    <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+    <script>
+        // Получаем параметры из URL
+        const urlParams = new URLSearchParams(window.location.search);
+        const roomId = window.location.pathname.split('/').pop() || urlParams.get('room');
+        const userId = urlParams.get('user') || 'guest_' + Math.random().toString(36).substr(2, 9);
+
+        // Подключение к WebRTC серверу
+        const socket = io('https://your-server.com', {
+            query: { room: roomId, user: userId }
+        });
+
+        const player = document.getElementById('player');
+        let isHost = false;
+
+        socket.on('connect', () => {
+            document.getElementById('status').innerHTML = '🟢 Подключено к ' + roomId;
+            socket.emit('join-room', { roomId, userId });
+        });
+
+        socket.on('room-state', (state) => {
+            if (state.host === userId) isHost = true;
+            if (state.videoUrl) {
+                loadVideoUrl(state.videoUrl);
+                player.currentTime = state.time || 0;
+                state.playing ? player.play() : player.pause();
+            }
+        });
+
+        socket.on('video-sync', (data) => {
+            // Синхронизация от хоста
+            if (data.userId !== userId) {
+                if (Math.abs(player.currentTime - data.time) > 2) {
+                    player.currentTime = data.time;
+                }
+                data.playing ? player.play() : player.pause();
+            }
+        });
+
+        // Синхронизация действий хоста
+        player.addEventListener('play', () => {
+            if (isHost) {
+                socket.emit('video-action', {
+                    roomId,
+                    userId,
+                    action: 'play',
+                    time: player.currentTime
+                });
+            }
+        });
+
+        player.addEventListener('pause', () => {
+            if (isHost) {
+                socket.emit('video-action', {
+                    roomId,
+                    userId,
+                    action: 'pause',
+                    time: player.currentTime
+                });
+            }
+        });
+
+        player.addEventListener('seeked', () => {
+            if (isHost) {
+                socket.emit('video-action', {
+                    roomId,
+                    userId,
+                    action: 'seek',
+                    time: player.currentTime
+                });
+            }
+        });
+
+        // Загрузка видео
+        async function loadVideo() {
+            const url = document.getElementById('url-input').value;
+            if (!url) return;
+
+            document.getElementById('status').innerHTML = '⏳ Загрузка...';
+
+            try {
+                // Отправляем ссылку на парсер
+                const response = await fetch('https://your-server.com/parse', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ url })
+                });
+
+                const data = await response.json();
+
+                if (data.videoUrl) {
+                    loadVideoUrl(data.videoUrl);
+
+                    // Оповещаем комнату
+                    socket.emit('video-load', {
+                        roomId,
+                        userId,
+                        videoUrl: data.videoUrl
+                    });
+
+                    document.getElementById('status').innerHTML = '✅ Видео загружено';
+                }
+            } catch (e) {
+                document.getElementById('status').innerHTML = '❌ Ошибка загрузки';
+            }
+        }
+
+        function loadVideoUrl(url) {
+            if (url.includes('.m3u8')) {
+                if (Hls.isSupported()) {
+                    const hls = new Hls();
+                    hls.loadSource(url);
+                    hls.attachMedia(player);
+                }
+            } else {
+                player.src = url;
+            }
+        }
+
+        function togglePlay() {
+            player.paused ? player.play() : player.pause();
+        }
+
+        // P2P WebTorrent для торрентов
+        async function loadTorrent(magnet) {
+            const WebTorrent = await import('https://cdn.jsdelivr.net/npm/webtorrent@latest/webtorrent.min.js');
+            const client = new WebTorrent();
+
+            client.add(magnet, (torrent) => {
+                const file = torrent.files.find(f =>
+                    f.name.endsWith('.mp4') || f.name.endsWith('.mkv')
+                );
+                file.renderTo('video');
+            });
+        }
+    </script>
+</body>
+</html>
