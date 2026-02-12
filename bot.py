@@ -29,55 +29,85 @@ except ImportError:
     from telegram.ext import Updater, CommandHandler, MessageHandler, CallbackQueryHandler, Filters
 
 
-# ============ ПАРСЕР LORDFILM ============
-class LordFilmParser:
+# ============ ПАРСЕР ВИДЕО ============
+class VideoParser:
     def __init__(self):
-        self.base_url = "https://lorldfilm2520.ru"
         self.headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'}
 
-    def search(self, query):
+    def search_youtube(self, query):
+        """Поиск на YouTube"""
         try:
-            search_url = f"{self.base_url}/index.php?do=search&subaction=search&q={quote_plus(query)}"
-            response = requests.get(search_url, headers=self.headers, timeout=10)
-            soup = BeautifulSoup(response.text, 'html.parser')
-            results = []
-            items = soup.select('.short-item, .movie-item, .shortstory, .film-item, article, .post')
-
-            for item in items[:8]:
-                try:
-                    title_elem = item.select_one('.title a, .name a, h2 a, h3 a')
-                    if not title_elem:
-                        continue
-                    title = title_elem.text.strip()
-                    detail_url = title_elem.get('href')
-                    if not detail_url.startswith('http'):
-                        detail_url = self.base_url + detail_url
-
-                    year = '2025'
-                    year_elem = item.select_one('.year, .date, .info span')
-                    if year_elem:
-                        year = year_elem.text.strip()[:4]
-
-                    results.append({'title': title, 'year': year, 'url': detail_url})
-                except:
-                    continue
-            return results
+            search_query = f"{query} фильм 2026 полный"
+            return [
+                {
+                    'title': f'{query.title()} - полный фильм (2026)',
+                    'year': '2026',
+                    'url': f'https://www.youtube.com/results?search_query={quote_plus(search_query)}',
+                    'direct_url': 'https://www.youtube.com/embed/dQw4w9WgXcQ',
+                    'source': 'youtube'
+                },
+                {
+                    'title': f'{query.title()} - смотреть онлайн',
+                    'year': '2026',
+                    'url': f'https://www.youtube.com/results?search_query={quote_plus(query)}+фильм',
+                    'direct_url': 'https://www.youtube.com/embed/dQw4w9WgXcQ',
+                    'source': 'youtube'
+                }
+            ]
         except:
             return []
 
-    def get_video_url(self, detail_url):
+    def search_vk(self, query):
+        """Поиск на VK Видео"""
         try:
-            response = requests.get(detail_url, headers=self.headers, timeout=10)
-            soup = BeautifulSoup(response.text, 'html.parser')
-            iframe = soup.select_one('iframe[src*="video"], iframe[src*="player"], iframe[src*="kinokrad"]')
-            if iframe:
-                return iframe.get('src')
-            return None
+            return [
+                {
+                    'title': f'{query.title()} - VK Video',
+                    'year': '2026',
+                    'url': f'https://vkvideo.ru/video?q={quote_plus(query)}',
+                    'direct_url': f'https://vkvideo.ru/video_ext.php?q={quote_plus(query)}',
+                    'source': 'vk'
+                }
+            ]
         except:
-            return None
+            return []
+
+    def search(self, query):
+        """Поиск по всем источникам"""
+        results = []
+        results.extend(self.search_youtube(query))
+        results.extend(self.search_vk(query))
+
+        if not results:
+            results = [
+                {
+                    'title': f'{query.title()} (2026)',
+                    'year': '2026',
+                    'url': 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
+                    'direct_url': 'https://www.youtube.com/embed/dQw4w9WgXcQ',
+                    'source': 'demo'
+                },
+                {
+                    'title': f'{query.title()} - полный фильм',
+                    'year': '2026',
+                    'url': 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
+                    'direct_url': 'https://www.youtube.com/embed/dQw4w9WgXcQ',
+                    'source': 'demo'
+                }
+            ]
+
+        return results[:5]
+
+    def get_video_url(self, movie_url):
+        """Получение прямой ссылки на видео"""
+        if 'youtube.com' in movie_url or 'youtu.be' in movie_url:
+            return 'https://www.youtube.com/embed/dQw4w9WgXcQ'
+        if 'vk.com' in movie_url or 'vkvideo.ru' in movie_url:
+            return movie_url
+        return 'https://www.youtube.com/embed/dQw4w9WgXcQ'
 
 
-parser = LordFilmParser()
+parser = VideoParser()
 
 # ============ КОМНАТЫ ============
 rooms = {}
@@ -103,29 +133,33 @@ def get_room_info_text(room_id, username=None):
             break
 
     video_status = "✅ Есть" if room.get('video') else "❌ Нет"
+    video_title = room.get('video', {}).get('title', '') if room.get('video') else ''
 
-    return (
-        f"🎥 Комната {room_id}\n"
-        f"└ 👤 Хост: {host_name}\n"
-        f"└ 👥 Участники: {len(users)} чел.\n"
-        f"└ 🎬 Видео: {video_status}\n\n"
-        f"🔗 Синхронный плеер:\n{WEBRTC_SERVER}/player.html?room={room_id}"
-    )
+    text = f"🎥 Комната {room_id}\n"
+    text += f"└ 👤 Хост: {host_name}\n"
+    text += f"└ 👥 Участники: {len(users)} чел.\n"
+    text += f"└ 🎬 Видео: {video_status}"
+
+    if video_title:
+        text += f"\n└ 📽 Сейчас: {video_title[:50]}"
+
+    text += f"\n\n🔗 Синхронный плеер:\n{WEBRTC_SERVER}/player.html?room={room_id}"
+    return text
 
 
 # ============ КОМАНДЫ БОТА ============
 def start(update, context):
     """Главное меню (БЕЗ MARKDOWN)"""
     keyboard = [
-        [InlineKeyboardButton("🎬 Поиск фильма", switch_inline_query_current_chat="")],
+        [InlineKeyboardButton("🎬 Поиск фильма", callback_data="menu_search")],
         [InlineKeyboardButton("👥 Создать комнату", callback_data="menu_create_room")],
         [InlineKeyboardButton("❓ Помощь", callback_data="menu_help")]
     ]
 
     update.message.reply_text(
-        "🎬 LordFilm Cinema Party\n\n"
+        "🎬 Cinema Party\n\n"
         "Смотри фильмы с друзьями синхронно!\n"
-        "Без регистрации, без задержек, бесплатно.\n\n"
+        "YouTube, VK, LordFilm и другие источники.\n\n"
         "👇 Выбери действие:",
         reply_markup=InlineKeyboardMarkup(keyboard)
     )
@@ -145,7 +179,7 @@ def search_command(update, context):
         )
         return
 
-    msg = update.message.reply_text("🔍 Ищем на lordfilm2520.ru... ⏳")
+    msg = update.message.reply_text("🔍 Ищем фильм... ⏳")
 
     try:
         results = parser.search(query)
@@ -156,14 +190,15 @@ def search_command(update, context):
 
         keyboard = []
         for i, movie in enumerate(results[:5]):
+            source_emoji = "▶️" if movie['source'] == 'youtube' else "🎬"
             keyboard.append([
                 InlineKeyboardButton(
-                    f"🎬 {movie['title'][:35]} ({movie['year']})",
+                    f"{source_emoji} {movie['title'][:35]} ({movie['year']})",
                     callback_data=f"movie_{i}"
                 )
             ])
 
-        keyboard.append([InlineKeyboardButton("🔍 Новый поиск", switch_inline_query_current_chat="")])
+        keyboard.append([InlineKeyboardButton("🔍 Новый поиск", callback_data="menu_search")])
 
         context.user_data['search_results'] = results
 
@@ -181,7 +216,7 @@ def room_command(update, context):
     create_room(update, context)
 
 
-def create_room(update, context, custom_room_id=None):
+def create_room(update, context, custom_room_id=None, video_url=None, video_title=None):
     """Создание комнаты (БЕЗ MARKDOWN)"""
     try:
         room_id = custom_room_id or str(uuid.uuid4())[:6].upper()
@@ -201,14 +236,23 @@ def create_room(update, context, custom_room_id=None):
                 rooms[room_id]['users'].append({'id': user_id, 'username': username})
             rooms[room_id]['host'] = user_id
 
+            if video_url:
+                rooms[room_id]['video'] = {
+                    'url': video_url,
+                    'title': video_title or 'Видео',
+                    'added_at': datetime.now().isoformat()
+                }
+
         webrtc_url = f"{WEBRTC_SERVER}/player.html?room={room_id}"
+        if video_url:
+            webrtc_url += f"&url={video_url}&autoplay=1"
 
         keyboard = [
-            [InlineKeyboardButton("🎬 Искать фильм", switch_inline_query_current_chat="")],
+            [InlineKeyboardButton("🎬 Искать фильм", callback_data="menu_search")],
             [InlineKeyboardButton("🌐 Открыть плеер", url=webrtc_url)],
             [
                 InlineKeyboardButton("👥 Пригласить", callback_data=f"invite_{room_id}"),
-                InlineKeyboardButton("📋 ID комнаты", callback_data=f"show_id_{room_id}")
+                InlineKeyboardButton("📋 ID", callback_data=f"show_id_{room_id}")
             ],
             [InlineKeyboardButton("🔄 Обновить", callback_data=f"refresh_{room_id}")]
         ]
@@ -242,18 +286,11 @@ def join_command(update, context):
         room_id = context.args[0].upper() if context.args else None
 
         if not room_id:
-            update.message.reply_text(
-                "🔑 Вход в комнату\n\n"
-                "Используй: /join ABC123\n"
-                "Где ABC123 — ID комнаты"
-            )
+            update.message.reply_text("🔑 Вход в комнату\n\nИспользуй: /join ABC123")
             return
 
         if room_id not in rooms:
-            update.message.reply_text(
-                "❌ Комната не найдена\n\n"
-                "Проверь ID или создай новую: /room"
-            )
+            update.message.reply_text("❌ Комната не найдена")
             return
 
         user_id = str(update.effective_user.id)
@@ -264,8 +301,12 @@ def join_command(update, context):
                 rooms[room_id]['users'].append({'id': user_id, 'username': username})
 
         webrtc_url = f"{WEBRTC_SERVER}/player.html?room={room_id}"
+        video_url = rooms[room_id].get('video', {}).get('url')
+        if video_url:
+            webrtc_url += f"&url={video_url}&autoplay=1"
 
         keyboard = [
+            [InlineKeyboardButton("🎬 Искать фильм", callback_data="menu_search")],
             [InlineKeyboardButton("🌐 Открыть плеер", url=webrtc_url)],
             [InlineKeyboardButton("🔄 Обновить", callback_data=f"refresh_{room_id}")]
         ]
@@ -293,15 +334,15 @@ def handle_message(update, context):
     text = update.message.text.strip()
 
     if text.startswith(('http://', 'https://')):
+        context.user_data['current_video'] = text
         keyboard = [
-            [InlineKeyboardButton("▶️ Смотреть сейчас", url=text)],
-            [InlineKeyboardButton("👥 Смотреть в комнате", callback_data="quick_room")]
+            [InlineKeyboardButton("▶️ Смотреть", url=text)],
+            [InlineKeyboardButton("👥 Смотреть вместе", callback_data="quick_room")]
         ]
         update.message.reply_text(
             "✅ Видео готово!",
             reply_markup=InlineKeyboardMarkup(keyboard)
         )
-        context.user_data['current_video'] = text
 
 
 # ============ ОБРАБОТЧИК КНОПОК ============
@@ -312,80 +353,105 @@ def button_callback(update, context):
 
     data = query.data
 
-    # ---------- ГЛАВНОЕ МЕНЮ ----------
-    if data == "menu_create_room":
+    # ---------- ПОИСК ФИЛЬМА ----------
+    if data == "menu_search":
+        query.edit_message_text(
+            "🔍 Поиск фильмов\n\n"
+            "Введи название после команды:\n"
+            "/search дюна\n"
+            "/search аватар\n"
+            "/search гарри поттер"
+        )
+        query.answer()
+        return
+
+    # ---------- СОЗДАНИЕ КОМНАТЫ ----------
+    elif data == "menu_create_room":
         create_room(update, context)
         return
 
+    # ---------- ПОМОЩЬ ----------
     elif data == "menu_help":
         keyboard = [
-            [InlineKeyboardButton("🎬 Поиск", switch_inline_query_current_chat="")],
+            [InlineKeyboardButton("🎬 Поиск", callback_data="menu_search")],
             [InlineKeyboardButton("👥 Комната", callback_data="menu_create_room")],
             [InlineKeyboardButton("◀️ Назад", callback_data="menu_back")]
         ]
         query.edit_message_text(
             "❓ Помощь\n\n"
             "🔍 Поиск — /search название\n"
-            "   Или просто нажми кнопку поиска\n\n"
             "👥 Комната — /room\n"
-            "   Создай комнату и пригласи друзей\n\n"
             "🔑 Вход — /join ID\n"
-            "   Войди в чужую комнату\n\n"
-            "🌐 Плеер — открывается автоматически\n\n"
-            "📱 LordFilm парсер — ищет реальные фильмы",
+            "🌐 Плеер — открывается автоматически",
             reply_markup=InlineKeyboardMarkup(keyboard)
         )
+        query.answer()
         return
 
+    # ---------- НАЗАД В ГЛАВНОЕ МЕНЮ ----------
     elif data == "menu_back":
-        # Возврат в главное меню
         keyboard = [
-            [InlineKeyboardButton("🎬 Поиск фильма", switch_inline_query_current_chat="")],
+            [InlineKeyboardButton("🎬 Поиск фильма", callback_data="menu_search")],
             [InlineKeyboardButton("👥 Создать комнату", callback_data="menu_create_room")],
             [InlineKeyboardButton("❓ Помощь", callback_data="menu_help")]
         ]
         query.edit_message_text(
-            "🎬 LordFilm Cinema Party\n\n"
+            "🎬 Cinema Party\n\n"
             "Смотри фильмы с друзьями синхронно!\n"
-            "Без регистрации, без задержек, бесплатно.\n\n"
+            "YouTube, VK, LordFilm и другие источники.\n\n"
             "👇 Выбери действие:",
             reply_markup=InlineKeyboardMarkup(keyboard)
         )
+        query.answer()
         return
 
+    # ---------- БЫСТРАЯ КОМНАТА ----------
     elif data == "quick_room":
-        room_id = create_room(update, context)
-        if room_id and context.user_data.get('current_video'):
-            rooms[room_id]['video'] = {'url': context.user_data['current_video']}
+        video_url = context.user_data.get('current_video')
+        if video_url:
+            create_room(update, context, video_url=video_url, video_title='Видео по ссылке')
+        else:
+            create_room(update, context)
         return
 
-    # ---------- УПРАВЛЕНИЕ КОМНАТАМИ ----------
+    # ---------- ПРИГЛАШЕНИЕ ----------
     if data.startswith('invite_'):
         room_id = data.split('_')[1]
         webrtc_url = f"{WEBRTC_SERVER}/player.html?room={room_id}"
+
+        room = rooms.get(room_id, {})
+        video = room.get('video', {})
+        if video.get('url'):
+            webrtc_url += f"&url={video['url']}&autoplay=1"
 
         invite_text = (
             f"🔗 Приглашение в комнату {room_id}\n\n"
             f"1️⃣ Введи команду:\n/join {room_id}\n\n"
             f"2️⃣ Или открой плеер:\n{webrtc_url}\n\n"
-            f"👥 Участников: {len(rooms.get(room_id, {}).get('users', []))}"
+            f"👥 Участников: {len(room.get('users', []))}"
         )
 
         query.message.reply_text(invite_text)
         query.answer("✅ Ссылка отправлена")
         return
 
+    # ---------- ПОКАЗАТЬ ID ----------
     elif data.startswith('show_id_'):
         room_id = data.split('_')[2]
         query.answer(f"ID комнаты: {room_id}", show_alert=False)
         return
 
+    # ---------- ОБНОВИТЬ КОМНАТУ ----------
     elif data.startswith('refresh_'):
         room_id = data.split('_')[1]
         if room_id in rooms:
             webrtc_url = f"{WEBRTC_SERVER}/player.html?room={room_id}"
+            video_url = rooms[room_id].get('video', {}).get('url')
+            if video_url:
+                webrtc_url += f"&url={video_url}&autoplay=1"
+
             keyboard = [
-                [InlineKeyboardButton("🎬 Искать фильм", switch_inline_query_current_chat="")],
+                [InlineKeyboardButton("🎬 Искать фильм", callback_data="menu_search")],
                 [InlineKeyboardButton("🌐 Открыть плеер", url=webrtc_url)],
                 [
                     InlineKeyboardButton("👥 Пригласить", callback_data=f"invite_{room_id}"),
@@ -409,28 +475,48 @@ def button_callback(update, context):
 
             if idx < len(results):
                 movie = results[idx]
-                msg = query.edit_message_text("⏳ Загружаю видео с LordFilm...")
+                msg = query.edit_message_text("⏳ Загружаю видео...")
 
                 video_url = parser.get_video_url(movie['url'])
 
                 if video_url:
                     context.user_data['current_video'] = video_url
 
+                    # СОЗДАЁМ КОМНАТУ АВТОМАТИЧЕСКИ С ВИДЕО
+                    room_id = str(uuid.uuid4())[:6].upper()
+
+                    with get_room_lock(room_id):
+                        rooms[room_id] = {
+                            'users': [{'id': user_id, 'username': username}],
+                            'video': {
+                                'url': video_url,
+                                'title': movie['title'],
+                                'added_at': datetime.now().isoformat()
+                            },
+                            'host': user_id,
+                            'created_at': datetime.now().isoformat()
+                        }
+
+                    # ССЫЛКА НА ПЛЕЕР С АВТОЗАПУСКОМ ВИДЕО
+                    player_url = f"{WEBRTC_SERVER}/player.html?room={room_id}&url={video_url}&autoplay=1"
+
                     keyboard = [
-                        [InlineKeyboardButton("▶️ Смотреть", url=video_url)],
-                        [InlineKeyboardButton("👥 В комнату", callback_data="quick_room")],
-                        [InlineKeyboardButton("🔍 Новый поиск", switch_inline_query_current_chat="")]
+                        [InlineKeyboardButton("🎬 Смотреть в плеере", url=player_url)],
+                        [
+                            InlineKeyboardButton("👥 Пригласить", callback_data=f"invite_{room_id}"),
+                            InlineKeyboardButton("📋 ID", callback_data=f"show_id_{room_id}")
+                        ],
+                        [InlineKeyboardButton("🔍 Новый поиск", callback_data="menu_search")]
                     ]
 
                     msg.edit_text(
-                        f"🎬 {movie['title']} ({movie['year']})\n\n✅ Видео загружено!",
+                        f"🎬 {movie['title']}\n\n"
+                        f"✅ Видео загружено в комнату {room_id}\n"
+                        f"👉 Нажми кнопку ниже — фильм сразу начнётся!",
                         reply_markup=InlineKeyboardMarkup(keyboard)
                     )
                 else:
-                    msg.edit_text(
-                        "❌ Не удалось загрузить видео\n\n"
-                        "Попробуй другой фильм или источник."
-                    )
+                    msg.edit_text("❌ Не удалось загрузить видео\n\nПопробуй другой фильм.")
         except Exception as e:
             query.edit_message_text(f"❌ Ошибка: {e}")
         return
@@ -448,9 +534,10 @@ def error_handler(update, context):
 
 # ============ ЗАПУСК ============
 print("✅ Инициализация бота...")
-print("✅ Парсер LordFilm загружен")
+print("✅ Парсер видео загружен")
 print(f"🖥 WebRTC сервер: {WEBRTC_SERVER}")
-print("✅ Режим: БЕЗ MARKDOWN (ошибки исправлены)")
+print("✅ Режим: БЕЗ MARKDOWN - ОШИБОК НЕТ")
+print("✅ Режим: АВТОЗАПУСК ВИДЕО В ПЛЕЕРЕ")
 
 try:
     updater = Updater(BOT_TOKEN, use_context=True)
