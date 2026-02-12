@@ -5,31 +5,99 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Кинокрад · Cinema Party</title>
     <style>
-        body { margin: 0; background: #000; color: #fff; font-family: Arial; height: 100vh; }
-        iframe { width: 100%; height: 100%; border: none; }
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            background: #0a0c0e;
+            color: white;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+        }
+        #player-container {
+            flex: 1;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background: #000;
+            position: relative;
+        }
+        iframe {
+            width: 100%;
+            height: 100%;
+            border: none;
+        }
         #info {
-            position: fixed; top: 20px; left: 20px;
-            background: rgba(0,0,0,0.85); padding: 12px 24px;
-            border-radius: 40px; z-index: 1000;
-            border: 1px solid #ff4d4d; color: #ff4d4d;
-            font-weight: bold; backdrop-filter: blur(5px);
+            position: fixed;
+            top: 20px;
+            left: 20px;
+            background: rgba(0,0,0,0.85);
+            padding: 12px 24px;
+            border-radius: 40px;
+            z-index: 1000;
+            border: 1px solid #ff4d4d;
+            color: #ff4d4d;
+            font-weight: bold;
+            backdrop-filter: blur(5px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+        }
+        #status {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: rgba(0,0,0,0.85);
+            padding: 12px 24px;
+            border-radius: 40px;
+            z-index: 1000;
+            border: 1px solid #00ff88;
+            color: #00ff88;
+            backdrop-filter: blur(5px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+        }
+        @media (max-width: 768px) {
+            #info, #status {
+                font-size: 14px;
+                padding: 8px 16px;
+            }
         }
     </style>
 </head>
 <body>
     <div id="info">🎬 Кинокрад | Комната: <span id="room-id">загрузка...</span></div>
-    <iframe id="player" allowfullscreen allow="autoplay; fullscreen"></iframe>
+    <div id="status">🟡 Загрузка плеера...</div>
+    
+    <div id="player-container">
+        <iframe id="player" allowfullscreen allow="autoplay; fullscreen"></iframe>
+    </div>
 
     <script>
+        // Получаем параметры из URL
         const params = new URLSearchParams(window.location.search);
         const roomId = params.get('room') || 'default';
         const videoUrl = params.get('url');
         
+        // Отображаем ID комнаты
         document.getElementById('room-id').textContent = roomId;
         
+        // Загружаем видео если есть
         if (videoUrl) {
             const player = document.getElementById('player');
-            player.src = videoUrl;  // Кинокрад откроется прямо здесь!
+            const status = document.getElementById('status');
+            
+            // Загружаем страницу Кинокрада с плеером
+            player.src = videoUrl;
+            status.innerHTML = '🎬 Плеер Кинокрада загружен';
+            
+            // Обработка ошибок
+            player.onerror = function() {
+                status.innerHTML = '❌ Ошибка загрузки плеера';
+                status.style.borderColor = '#ff4d4d';
+                status.style.color = '#ff4d4d';
+            };
         }
     </script>
 </body>
