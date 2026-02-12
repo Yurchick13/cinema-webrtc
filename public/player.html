@@ -3,26 +3,28 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Cinema Party</title>
+    <title>LordFilm Cinema</title>
     <style>
         body {
             margin: 0;
-            background: #000;
+            background: #0a0c0e;
             color: white;
             font-family: Arial, sans-serif;
             display: flex;
+            flex-direction: column;
+            height: 100vh;
+        }
+        #player-container {
+            flex: 1;
+            display: flex;
             justify-content: center;
             align-items: center;
-            height: 100vh;
-            flex-direction: column;
+            background: #000;
         }
-        #player {
+        iframe {
             width: 100%;
-            max-width: 1000px;
-            height: 70vh;
+            height: 100%;
             border: none;
-            border-radius: 12px;
-            box-shadow: 0 0 20px rgba(255,75,75,0.3);
         }
         #info {
             position: fixed;
@@ -31,50 +33,27 @@
             background: rgba(0,0,0,0.8);
             padding: 10px 20px;
             border-radius: 30px;
-            border: 1px solid #ff4d4d;
-            color: #ff4d4d;
-        }
-        #status {
-            position: fixed;
-            top: 20px;
-            right: 20px;
-            background: rgba(0,0,0,0.8);
-            padding: 10px 20px;
-            border-radius: 30px;
-            border: 1px solid #00ff88;
-            color: #00ff88;
+            z-index: 1000;
         }
     </style>
 </head>
 <body>
-    <div id="info">🏠 Комната: <span id="room-id">загрузка...</span></div>
-    <div id="status">🟡 Подключение...</div>
-
-    <iframe id="player" src="" allow="autoplay; fullscreen" allowfullscreen></iframe>
+    <div id="info">🎬 LordFilm | Комната: <span id="room-id">загрузка...</span></div>
+    
+    <div id="player-container">
+        <iframe id="player" allowfullscreen allow="autoplay; fullscreen"></iframe>
+    </div>
 
     <script>
-        const urlParams = new URLSearchParams(window.location.search);
-        const roomId = urlParams.get('room') || 'default';
-        const videoUrl = urlParams.get('url');
-
+        const params = new URLSearchParams(window.location.search);
+        const roomId = params.get('room') || 'default';
+        const videoUrl = params.get('url');
+        
         document.getElementById('room-id').textContent = roomId;
-        document.getElementById('status').innerHTML = '🟢 Плеер готов';
-
+        
         if (videoUrl) {
-            let embedUrl = videoUrl;
-
-            // Конвертируем YouTube ссылки в embed формат
-            if (videoUrl.includes('youtube.com/watch')) {
-                const videoId = new URL(videoUrl).searchParams.get('v');
-                embedUrl = `https://www.youtube.com/embed/${videoId}?autoplay=1&rel=0`;
-            } else if (videoUrl.includes('youtu.be/')) {
-                const videoId = videoUrl.split('youtu.be/')[1].split('?')[0];
-                embedUrl = `https://www.youtube.com/embed/${videoId}?autoplay=1&rel=0`;
-            }
-
             const player = document.getElementById('player');
-            player.src = embedUrl;
-            document.getElementById('status').innerHTML = '🎬 Воспроизведение';
+            player.src = videoUrl;
         }
     </script>
 </body>
