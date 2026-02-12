@@ -164,4 +164,51 @@
                 video.style.display = 'block';
                 iframe.style.display = 'none';
                 video.src = videoUrl;
-                video.play().catch(e => debug('Ошибка
+                video.play().catch(e => debug('Ошибка автозапуска: ' + e));
+                status.innerHTML = '🎬 Воспроизведение потока';
+            }
+            
+            // 3. Любые другие ссылки - пробуем через iframe
+            else {
+                debug('ℹ️ Используем iframe плеер');
+                video.style.display = 'none';
+                iframe.style.display = 'block';
+                iframe.src = videoUrl;
+                status.innerHTML = '🎬 Плеер загружен';
+                
+                // Проверка на ошибки загрузки iframe
+                iframe.onerror = function() {
+                    debug('❌ Ошибка загрузки iframe');
+                    status.innerHTML = '❌ Ошибка загрузки';
+                    status.style.borderColor = '#ff4d4d';
+                    status.style.color = '#ff4d4d';
+                };
+            }
+            
+            // Показываем кнопку назад
+            document.getElementById('back-btn').style.display = 'block';
+        } else {
+            document.getElementById('status').innerHTML = '⚠️ Нет ссылки на видео';
+            debug('❌ Параметр url не передан');
+        }
+        
+        // ============ ОБРАБОТКА ОШИБОК ВИДЕО ============
+        const video = document.getElementById('player');
+        video.onerror = function(e) {
+            debug('❌ Ошибка видео: ' + (e.target.error ? e.target.error.message : 'неизвестная ошибка'));
+            status.innerHTML = '❌ Ошибка видео';
+            status.style.borderColor = '#ff4d4d';
+            status.style.color = '#ff4d4d';
+        };
+        
+        video.onloadedmetadata = function() {
+            debug('✅ Метаданные видео загружены');
+        };
+        
+        // ============ СКРЫВАЕМ ОТЛАДКУ ЧЕРЕЗ 10 СЕКУНД ============
+        setTimeout(() => {
+            document.getElementById('debug').style.display = 'none';
+        }, 10000);
+    </script>
+</body>
+</html>
