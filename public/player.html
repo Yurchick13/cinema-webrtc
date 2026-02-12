@@ -5,11 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Кинокрад · Cinema Party</title>
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
             background: #0a0c0e;
             color: white;
@@ -24,7 +20,6 @@
             justify-content: center;
             align-items: center;
             background: #000;
-            position: relative;
         }
         iframe {
             width: 100%;
@@ -43,7 +38,6 @@
             color: #ff4d4d;
             font-weight: bold;
             backdrop-filter: blur(5px);
-            box-shadow: 0 4px 12px rgba(0,0,0,0.4);
         }
         #status {
             position: fixed;
@@ -56,13 +50,6 @@
             border: 1px solid #00ff88;
             color: #00ff88;
             backdrop-filter: blur(5px);
-            box-shadow: 0 4px 12px rgba(0,0,0,0.4);
-        }
-        @media (max-width: 768px) {
-            #info, #status {
-                font-size: 14px;
-                padding: 8px 16px;
-            }
         }
     </style>
 </head>
@@ -75,28 +62,21 @@
     </div>
 
     <script>
-        // Получаем параметры из URL
         const params = new URLSearchParams(window.location.search);
         const roomId = params.get('room') || 'default';
         const videoUrl = params.get('url');
         
-        // Отображаем ID комнаты
         document.getElementById('room-id').textContent = roomId;
         
-        // Загружаем видео если есть
         if (videoUrl) {
             const player = document.getElementById('player');
             const status = document.getElementById('status');
             
-            // Загружаем страницу Кинокрада с плеером
             player.src = videoUrl;
-            status.innerHTML = '🎬 Плеер Кинокрада загружен';
+            status.innerHTML = '🎬 Плеер загружен';
             
-            // Обработка ошибок
             player.onerror = function() {
-                status.innerHTML = '❌ Ошибка загрузки плеера';
-                status.style.borderColor = '#ff4d4d';
-                status.style.color = '#ff4d4d';
+                status.innerHTML = '❌ Ошибка загрузки';
             };
         }
     </script>
